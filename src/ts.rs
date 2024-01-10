@@ -58,6 +58,7 @@ impl ExportLanguage for Language {
 
                     builder.build()
                 };
+                
                 Ok(js_ts::function(
                     &docs,
                     &function.name.to_lower_camel_case(),

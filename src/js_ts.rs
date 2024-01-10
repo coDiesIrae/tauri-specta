@@ -56,13 +56,7 @@ fn return_as_result_tuple(expr: &str, as_any: bool) -> String {
     let as_any = as_any.then_some(" as any").unwrap_or_default();
 
     formatdoc!(
-        r#"
-		try {{
-		    return {{ status: "ok", data: {expr} }};
-		}} catch (e) {{
-		    if(e instanceof Error) throw e;
-		    else return {{ status: "error", error: e {as_any} }};
-		}}"#
+        r#"return {expr}"#
     )
 }
 
@@ -81,6 +75,7 @@ pub fn function(
     body: &str,
 ) -> String {
     let args = args.join(", ");
+
     let return_type = return_type
         .map(|t| format!(": Promise<{}>", t))
         .unwrap_or_default();
@@ -105,15 +100,6 @@ pub fn handle_result(
     cfg: &ExportConfig,
 ) -> Result<String, ExportError> {
     Ok(match &function.result {
-        DataType::Result(t) => {
-            let (t, e) = t.as_ref();
-
-            format!(
-                "__Result__<{}, {}>",
-                ts::datatype(&cfg.inner, t, type_map)?,
-                ts::datatype(&cfg.inner, e, type_map)?
-            )
-        }
         t => ts::datatype(&cfg.inner, t, type_map)?,
     })
 }
