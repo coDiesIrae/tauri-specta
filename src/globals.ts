@@ -52,3 +52,30 @@ function __makeEvents__<T extends Record<string, any>>(
     }
   );
 }
+
+type __CommandType<T extends any[], O, E> = {
+  async(...args: T): Promise<O>;
+  key: string;
+  useSWR: (
+    args: T,
+    config?: SWRConfiguration<O, E>
+  ) => ReturnType<typeof useSWR<O, E>>;
+};
+
+function command<T extends any[], O = any, E = any>(
+  key: string
+): __CommandType<T, O, E> {
+  return {
+    async(...args: T) {
+      return TAURI_INVOKE(`plugin:tauri-specta|${key}`, ...args);
+    },
+    key,
+    useSWR(args, config) {
+      return useSWR(
+        [key, ...args],
+        ([_key, ..._args]) => TAURI_INVOKE(_key, ..._args),
+        config
+      );
+    },
+  };
+}

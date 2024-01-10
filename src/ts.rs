@@ -47,24 +47,36 @@ impl ExportLanguage for Language {
                     })
                     .collect::<Result<Vec<_>, _>>()?;
 
-                let ret_type = js_ts::handle_result(function, type_map, cfg)?;
+                let arg_type = format!("[{}]", arg_defs.join(", "));
 
-                let docs = {
-                    let mut builder = js_doc::Builder::default();
+                let ret_type = match &function.result {
+                    specta::DataType::Result(t) => {
+                        let (r, _) = t.as_ref();
 
-                    if !function.docs.is_empty() {
-                        builder.extend(function.docs.split("\n"));
+                        ts::datatype(&cfg.inner, r, type_map)
                     }
+                    t => ts::datatype(&cfg.inner, t, type_map),
+                }?;
 
-                    builder.build()
-                };
-                
-                Ok(js_ts::function(
-                    &docs,
-                    &function.name.to_lower_camel_case(),
-                    &arg_defs,
-                    Some(&ret_type),
-                    &js_ts::command_body(cfg, function, true),
+                let err_type = match &function.result {
+                    specta::DataType::Result(t) => {
+                        let (_, e) = t.as_ref();
+
+                        ts::datatype(&cfg.inner, e, type_map)
+                    }
+                    _ => Ok("void".to_string()),
+                }?;
+
+                let name = function.name.to_string();
+
+                let full_key = cfg
+                    .plugin_name
+                    .apply_as_prefix(&function.name, ItemType::Command);
+
+                Ok(format!(
+                    r#"
+                {name}: command<{arg_type}, {ret_type}, {err_type}>("{full_key}")
+                "#
                 ))
             })
             .collect::<Result<Vec<_>, ExportError>>()?
