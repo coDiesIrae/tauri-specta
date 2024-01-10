@@ -1,6 +1,8 @@
 import { invoke as TAURI_INVOKE } from "@tauri-apps/api/tauri";
 import * as TAURI_API_EVENT from "@tauri-apps/api/event";
 import { type WebviewWindowHandle as __WebviewWindowHandle__ } from "@tauri-apps/api/window";
+import useSWR, { type SWRConfiguration } from "swr";
+import useSWRMutation, { SWRMutationConfiguration } from "swr/mutation";
 
 type __EventObj__<T> = {
   listen: (
@@ -60,6 +62,9 @@ type __CommandType<T extends any[], O, E> = {
     args: T,
     config?: SWRConfiguration<O, E>
   ) => ReturnType<typeof useSWR<O, E>>;
+  useSWRMutation: (
+    config?: SWRMutationConfiguration<O, E>
+  ) => ReturnType<typeof useSWRMutation<O, E, string, T>>;
 };
 
 function command<T extends any[], O = any, E = any>(
@@ -67,13 +72,22 @@ function command<T extends any[], O = any, E = any>(
 ): __CommandType<T, O, E> {
   return {
     async(...args: T) {
-      return TAURI_INVOKE(`plugin:tauri-specta|${key}`, ...args);
+      return TAURI_INVOKE(key, ...args);
     },
     key,
     useSWR(args, config) {
       return useSWR(
         [key, ...args],
         ([_key, ..._args]) => TAURI_INVOKE(_key, ..._args),
+        config
+      );
+    },
+    useSWRMutation(config) {
+      return useSWRMutation<O, E, string, T>(
+        key,
+        (_, { arg }) => {
+          return TAURI_INVOKE(key, ...arg);
+        },
         config
       );
     },
