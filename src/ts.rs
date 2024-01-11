@@ -116,9 +116,13 @@ impl ExportLanguage for Language {
     fn render(
         commands: &[FunctionDataType],
         events: &[EventDataType],
-        type_map: &TypeMap,
+        _type_map: &TypeMap,
         cfg: &ExportConfig,
     ) -> Result<String, ExportError> {
+        let type_map = &mut TypeMap::default();
+
+        specta::export::get_types().for_each(|f| type_map.insert(f.0, f.1));
+
         let dependant_types = type_map
             .iter()
             .map(|(_sid, ndt)| ts::export_named_datatype(&cfg.inner, ndt, type_map))

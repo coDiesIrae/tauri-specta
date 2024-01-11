@@ -638,6 +638,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ctor"
+version = "0.2.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "30d2b3721e861707777e3195b0158f950ae6dc4a27e4d02ff9f67e3eb3de199e"
+dependencies = [
+ "quote",
+ "syn 2.0.37",
+]
+
+[[package]]
 name = "darling"
 version = "0.20.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3201,6 +3211,7 @@ version = "2.0.0-rc.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "18938fc0c7c0e8b7c8f4702e8cb53c218d4442f5b7420dd8b3d9640ca9a46712"
 dependencies = [
+ "ctor 0.2.6",
  "once_cell",
  "paste",
  "serde",
@@ -3631,7 +3642,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "34d55e185904a84a419308d523c2c6891d5e2dbcee740c4997eb42e75a7b0f46"
 dependencies = [
  "brotli",
- "ctor",
+ "ctor 0.1.26",
  "dunce",
  "glob",
  "heck 0.4.1",
