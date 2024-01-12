@@ -1,7 +1,7 @@
 import { invoke as TAURI_INVOKE } from "@tauri-apps/api/tauri";
 import * as TAURI_API_EVENT from "@tauri-apps/api/event";
 import { type WebviewWindowHandle as __WebviewWindowHandle__ } from "@tauri-apps/api/window";
-import useSWR, { type SWRConfiguration } from "swr";
+import useSWR, { Fetcher, type SWRConfiguration } from "swr";
 import useSWRMutation, { SWRMutationConfiguration } from "swr/mutation";
 
 type __EventObj__<T> = {
@@ -58,12 +58,20 @@ function __makeEvents__<T extends Record<string, any>>(
 type __CommandType<T extends any[], O, E> = {
   async(...args: T): Promise<O>;
   key: string;
-  useSWR: (
-    args: T,
-    config?: SWRConfiguration<O, E>
-  ) => ReturnType<typeof useSWR<O, E>>;
-  useSWRMutation: (
-    config?: SWRMutationConfiguration<O, E>
+  useSWR: <
+    Options extends SWRConfiguration<O, E, Fetcher<O, string>> | undefined =
+      | SWRConfiguration<O, E, Fetcher<O, string>>
+      | undefined
+  >(
+    args?: T,
+    config?: Options
+  ) => ReturnType<typeof useSWR<O, E, Options>>;
+  useSWRMutation: <
+    MutationOptions extends
+      | SWRMutationConfiguration<O, E, string, T>
+      | undefined = SWRMutationConfiguration<O, E, string, T> | undefined
+  >(
+    config?: MutationOptions
   ) => ReturnType<typeof useSWRMutation<O, E, string, T>>;
 };
 
@@ -75,7 +83,7 @@ function command<T extends any[], O = any, E = any>(
       return TAURI_INVOKE(key, ...args);
     },
     key,
-    useSWR(args, config) {
+    useSWR(args = [] as unknown as T, config) {
       return useSWR(
         [key, ...args],
         ([_key, ..._args]) => TAURI_INVOKE(_key, ..._args),
@@ -83,10 +91,10 @@ function command<T extends any[], O = any, E = any>(
       );
     },
     useSWRMutation(config) {
-      return useSWRMutation<O, E, string, T>(
+      return useSWRMutation(
         key,
-        (_, { arg }) => {
-          return TAURI_INVOKE(key, ...arg);
+        (_key, { arg: _args }) => {
+          return TAURI_INVOKE(_key, ..._args);
         },
         config
       );

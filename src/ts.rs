@@ -1,11 +1,12 @@
 use crate::{js_ts, *};
-use heck::ToLowerCamelCase;
+use heck::{ToLowerCamelCase, ToShoutyKebabCase};
 use indoc::formatdoc;
 use specta::{
     functions::FunctionDataType,
     js_doc,
-    ts::{self, ExportError},
-    TypeMap,
+    reference::{self, reference},
+    ts::{self, datatype, ExportError},
+    DataType, DataTypeReference, NamedType, TypeMap,
 };
 use tauri::Runtime;
 
@@ -20,6 +21,68 @@ pub const GLOBALS: &str = include_str!("./globals.ts");
 
 type Config = specta::ts::ExportConfig;
 pub type ExportConfig = crate::ExportConfig<Config>;
+
+impl Language {
+    fn named_to_reference_type(
+        name: String,
+        typ: &DataType,
+        type_map: &TypeMap,
+    ) -> Option<DataTypeReference> {
+        let entry = type_map.iter().find(|(_, ndt)| *ndt.name() == name)?;
+
+        if let Some(g) = typ.generics() {
+            if !g.is_empty() {
+                return None;
+            }
+        }
+
+        let refer = specta::internal::construct::data_type_reference(name.into(), entry.0, vec![]);
+
+        Some(refer)
+    }
+
+    fn wrap_result_type(
+        cfg: &Config,
+        datatype: &specta::DataType,
+        type_map: &TypeMap,
+    ) -> Result<String, ExportError> {
+        match datatype {
+            DataType::Any => ts::datatype(cfg, datatype, type_map),
+            DataType::Unknown => ts::datatype(cfg, datatype, type_map),
+            DataType::Primitive(_) => ts::datatype(cfg, datatype, type_map),
+            DataType::Literal(_) => ts::datatype(cfg, datatype, type_map),
+            DataType::List(_) => ts::datatype(cfg, datatype, type_map),
+            DataType::Nullable(_) => ts::datatype(cfg, datatype, type_map),
+            DataType::Map(_) => ts::datatype(cfg, datatype, type_map),
+            DataType::Struct(st) => {
+                let name = st.name().to_string();
+
+                let refer = Self::named_to_reference_type(name, datatype, type_map);
+
+                if let Some(refer) = refer {
+                    ts::datatype(cfg, &DataType::Reference(refer), type_map)
+                } else {
+                    ts::datatype(cfg, datatype, type_map)
+                }
+            }
+            DataType::Enum(en) => {
+                let name = en.name().to_string();
+
+                let refer = Self::named_to_reference_type(name, datatype, type_map);
+
+                if let Some(refer) = refer {
+                    ts::datatype(cfg, &DataType::Reference(refer), type_map)
+                } else {
+                    ts::datatype(cfg, datatype, type_map)
+                }
+            }
+            DataType::Tuple(_) => ts::datatype(cfg, datatype, type_map),
+            DataType::Result(_) => ts::datatype(cfg, datatype, type_map),
+            DataType::Reference(_) => ts::datatype(cfg, datatype, type_map),
+            DataType::Generic(_) => ts::datatype(cfg, datatype, type_map),
+        }
+    }
+}
 
 impl ExportLanguage for Language {
     type Config = Config;
@@ -53,18 +116,21 @@ impl ExportLanguage for Language {
                     specta::DataType::Result(t) => {
                         let (r, _) = t.as_ref();
 
-                        ts::datatype(&cfg.inner, r, type_map)
+                        Self::wrap_result_type(&cfg.inner, r, type_map)
                     }
-                    t => ts::datatype(&cfg.inner, t, type_map),
+                    specta::DataType::Nullable(n) => {
+                        Self::wrap_result_type(&cfg.inner, n, type_map)
+                    }
+                    t => Self::wrap_result_type(&cfg.inner, t, type_map),
                 }?;
 
                 let err_type = match &function.result {
                     specta::DataType::Result(t) => {
                         let (_, e) = t.as_ref();
 
-                        ts::datatype(&cfg.inner, e, type_map)
+                        Self::wrap_result_type(&cfg.inner, e, type_map)
                     }
-                    _ => Ok("void".to_string()),
+                    _ => Ok("never".to_string()),
                 }?;
 
                 let name = function.name.to_string();
@@ -116,19 +182,29 @@ impl ExportLanguage for Language {
     fn render(
         commands: &[FunctionDataType],
         events: &[EventDataType],
-        _type_map: &TypeMap,
+        type_map: &TypeMap,
         cfg: &ExportConfig,
     ) -> Result<String, ExportError> {
-        let type_map = &mut TypeMap::default();
+        let new_type_map = &mut TypeMap::default();
 
-        specta::export::get_types().for_each(|f| type_map.insert(f.0, f.1));
-
-        let dependant_types = type_map
+        specta::export::get_types().for_each(|f| new_type_map.insert(f.0, f.1));
+        type_map
             .iter()
-            .map(|(_sid, ndt)| ts::export_named_datatype(&cfg.inner, ndt, type_map))
+            .for_each(|f| new_type_map.insert(f.0, f.1.clone()));
+
+        let dependant_types = new_type_map
+            .iter()
+            .map(|(_sid, ndt)| ts::export_named_datatype(&cfg.inner, ndt, new_type_map))
             .collect::<Result<Vec<_>, _>>()
             .map(|v| v.join("\n"))?;
 
-        js_ts::render_all_parts::<Self>(commands, events, type_map, cfg, &dependant_types, GLOBALS)
+        js_ts::render_all_parts::<Self>(
+            commands,
+            events,
+            new_type_map,
+            cfg,
+            &dependant_types,
+            GLOBALS,
+        )
     }
 }

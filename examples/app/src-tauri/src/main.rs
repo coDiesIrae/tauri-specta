@@ -36,7 +36,23 @@ mod nested {
 
     #[tauri::command]
     #[specta::specta]
-    pub fn some_struct() -> MyStruct {
+    pub fn result_struct() -> Result<MyStruct, ()> {
+        Ok(MyStruct {
+            some_field: "Hello World".into(),
+        })
+    }
+
+    #[tauri::command]
+    #[specta::specta]
+    pub fn generic_struct() -> Result<GenericStruct<String>, ()> {
+        Ok(GenericStruct {
+            some_field: "Hello World".into(),
+        })
+    }
+
+    #[tauri::command]
+    #[specta::specta]
+    pub fn my_struct() -> MyStruct {
         MyStruct {
             some_field: "Hello World".into(),
         }
@@ -45,6 +61,11 @@ mod nested {
     #[derive(Serialize, specta::Type)] // For Specta support you must add the `specta::Type` derive macro.
     pub struct MyStruct {
         some_field: String,
+    }
+
+    #[derive(Serialize, specta::Type)] // For Specta support you must add the `specta::Type` derive macro.
+    pub struct GenericStruct<T> {
+        some_field: T,
     }
 }
 
@@ -61,7 +82,9 @@ fn main() {
                 hello_world,
                 goodbye_world,
                 has_error,
-                nested::some_struct,
+                nested::result_struct,
+                nested::my_struct,
+                nested::generic_struct,
                 generic::<tauri::Wry>
             ])
             .events(tauri_specta::collect_events![DemoEvent, EmptyEvent])
