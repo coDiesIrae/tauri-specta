@@ -1,4 +1,4 @@
-import { invoke as TAURI_INVOKE } from "@tauri-apps/api/tauri";
+import { InvokeArgs, invoke as TAURI_INVOKE } from "@tauri-apps/api/tauri";
 import * as TAURI_API_EVENT from "@tauri-apps/api/event";
 import { type WebviewWindowHandle as __WebviewWindowHandle__ } from "@tauri-apps/api/window";
 import useSWR, { Fetcher, type SWRConfiguration } from "swr";
@@ -55,8 +55,8 @@ function __makeEvents__<T extends Record<string, any>>(
   );
 }
 
-type __CommandType<T extends any[], O, E> = {
-  async(...args: T): Promise<O>;
+type __CommandType<T extends InvokeArgs | undefined, O, E> = {
+  async(arg: T): Promise<O>;
   key: string;
   useSWR: <
     Options extends SWRConfiguration<O, E, Fetcher<O, string>> | undefined =
@@ -75,18 +75,18 @@ type __CommandType<T extends any[], O, E> = {
   ) => ReturnType<typeof useSWRMutation<O, E, string, T>>;
 };
 
-function command<T extends any[], O = any, E = any>(
+function command<T extends InvokeArgs | undefined, O = any, E = any>(
   key: string
 ): __CommandType<T, O, E> {
   return {
-    async(...args: T) {
-      return TAURI_INVOKE(key, ...args);
+    async(arg: T) {
+      return TAURI_INVOKE(key, arg);
     },
     key,
-    useSWR(args = [] as unknown as T, config) {
+    useSWR(arg, config) {
       return useSWR(
-        [key, ...args],
-        ([_key, ..._args]) => TAURI_INVOKE(_key, ..._args),
+        [key, arg],
+        ([_key, _arg]) => TAURI_INVOKE(_key, _arg),
         config
       );
     },
@@ -94,7 +94,7 @@ function command<T extends any[], O = any, E = any>(
       return useSWRMutation(
         key,
         (_key, { arg: _args }) => {
-          return TAURI_INVOKE(_key, ..._args);
+          return TAURI_INVOKE(_key, _args);
         },
         config
       );
