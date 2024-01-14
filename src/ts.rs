@@ -110,7 +110,7 @@ impl ExportLanguage for Language {
                     })
                     .collect::<Result<Vec<_>, _>>()?;
 
-                let arg_type = format!("[{}]", arg_defs.join(", "));
+                let arg_type = format!("{{{}}}", arg_defs.join(", "));
 
                 let ret_type = match &function.result {
                     specta::DataType::Result(t) => {
